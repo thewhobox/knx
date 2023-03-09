@@ -131,12 +131,50 @@ void RP2040ArduinoPlatform::commitToEeprom()
     noInterrupts();
     rp2040.idleOtherCore();
 
-    //ToDo: write block-by-block to prevent writing of untouched blocks
+    //write block-by-block to prevent writing of untouched blocks
+    for(uint16_t currEraseBlock = 0; currEraseBlock < (KNX_FLASH_SIZE / FLASH_SECTOR_SIZE); currEraseBlock++)
+    {
+        uint32_t start = micros();
+        if(memcmp(_rambuff + currEraseBlock * FLASH_SECTOR_SIZE, FLASHPTR, FLASH_SECTOR_SIZE))
+        {
+            uint32_t stop = micros();
+            KNX_DEBUG_SERIAL.print("sector dirty: ");
+            KNX_DEBUG_SERIAL.println(currEraseBlock);
+            KNX_DEBUG_SERIAL.print("compare duration [us]: ");
+            KNX_DEBUG_SERIAL.println(stop-start);
+            
+            start = micros();
+            flash_range_erase (KNX_FLASH_OFFSET + currEraseBlock * FLASH_SECTOR_SIZE, FLASH_SECTOR_SIZE);
+            stop = micros();
+            KNX_DEBUG_SERIAL.print("erase duration [us]: ");
+            KNX_DEBUG_SERIAL.println(stop-start);
+
+#ifndef TEST_WRITEPAGEBYPAGE
+            start = micros();
+            flash_range_program(KNX_FLASH_OFFSET + currEraseBlock * FLASH_SECTOR_SIZE, _rambuff + currEraseBlock * FLASH_SECTOR_SIZE, FLASH_SECTOR_SIZE);
+            stop = micros();
+            KNX_DEBUG_SERIAL.print("program block duration [us]: ");
+            KNX_DEBUG_SERIAL.println(stop-start);
+#else
+            for(uint16_t currPage = 0; currPage < (FLASH_SECTOR_SIZE / FLASH_PAGE_SIZE); currPage++)
+            {
+                start = micros();
+                flash_range_program(KNX_FLASH_OFFSET + currEraseBlock * FLASH_SECTOR_SIZE + currPage * FLASH_PAGE_SIZE, _rambuff + currEraseBlock * FLASH_SECTOR_SIZE + currPage * FLASH_PAGE_SIZE, FLASH_PAGE_SIZE);
+                stop = micros();
+                KNX_DEBUG_SERIAL.print("program page duration [us]: ");
+                KNX_DEBUG_SERIAL.println(stop-start);
+            }
+#endif
+        }
+    }
+
+    /*
     if(memcmp(_rambuff, FLASHPTR, KNX_FLASH_SIZE))
     {
         flash_range_erase (KNX_FLASH_OFFSET, KNX_FLASH_SIZE);
         flash_range_program(KNX_FLASH_OFFSET, _rambuff, KNX_FLASH_SIZE);
     }
+    */
 
     rp2040.resumeOtherCore();
     interrupts();
