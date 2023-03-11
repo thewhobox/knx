@@ -131,11 +131,12 @@ void RP2040ArduinoPlatform::commitToEeprom()
     noInterrupts();
     rp2040.idleOtherCore();
 
+    /*
     //write block-by-block to prevent writing of untouched blocks
     for(uint16_t currEraseBlock = 0; currEraseBlock < (KNX_FLASH_SIZE / FLASH_SECTOR_SIZE); currEraseBlock++)
     {
         uint32_t start = micros();
-        if(memcmp(_rambuff + currEraseBlock * FLASH_SECTOR_SIZE, FLASHPTR, FLASH_SECTOR_SIZE))
+        if(memcmp(_rambuff + currEraseBlock * FLASH_SECTOR_SIZE, FLASHPTR + currEraseBlock * FLASH_SECTOR_SIZE, FLASH_SECTOR_SIZE))
         {
             uint32_t stop = micros();
             KNX_DEBUG_SERIAL.print("sector dirty: ");
@@ -167,14 +168,14 @@ void RP2040ArduinoPlatform::commitToEeprom()
 #endif
         }
     }
-
-    /*
+    */
+    
     if(memcmp(_rambuff, FLASHPTR, KNX_FLASH_SIZE))
     {
         flash_range_erase (KNX_FLASH_OFFSET, KNX_FLASH_SIZE);
         flash_range_program(KNX_FLASH_OFFSET, _rambuff, KNX_FLASH_SIZE);
     }
-    */
+    
 
     rp2040.resumeOtherCore();
     interrupts();
